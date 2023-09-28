@@ -24,6 +24,7 @@ where
             match self.iter.next() {
                 Some(v) => {
                     if (self.should_skip)(&v) {
+                        // We stepped inside the next separator, so we stop
                         return Some(accum);
                     }
                     accum = (self.consume)(&accum, &v)
