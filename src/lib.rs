@@ -1,19 +1,19 @@
-pub struct BlockConsumer<I, SF, CF> {
+pub struct BlockConsumer<I, SF, FF> {
     iter: I,
     should_skip: SF,
-    consume: CF,
+    fold_func: FF,
 }
-impl<I, SF, CF> BlockConsumer<I, SF, CF>
+impl<I, SF, FF> BlockConsumer<I, SF, FF>
 where
     I: Iterator,
     SF: FnMut(&I::Item) -> bool,
-    CF: FnMut(&I::Item, &I::Item) -> I::Item,
+    FF: FnMut(&I::Item, &I::Item) -> I::Item,
 {
-    pub fn new(iter: I, should_skip: SF, consume: CF) -> BlockConsumer<I, SF, CF> {
+    pub fn new(iter: I, should_skip: SF, fold_func: FF) -> BlockConsumer<I, SF, FF> {
         BlockConsumer {
             iter,
             should_skip,
-            consume,
+            fold_func,
         }
     }
     // skips until a value is found, then return that value
@@ -34,7 +34,7 @@ where
                         // We stepped inside the next separator, so we stop
                         return Some(accum);
                     }
-                    accum = (self.consume)(&accum, &v)
+                    accum = (self.fold_func)(&accum, &v)
                 }
                 // The item returned by skip was a singular, last item,
                 // so, self.iter.next() above resulted in None.
@@ -43,11 +43,11 @@ where
         }
     }
 }
-impl<I, SF, CF> Iterator for BlockConsumer<I, SF, CF>
+impl<I, SF, FF> Iterator for BlockConsumer<I, SF, FF>
 where
     I: Iterator,
     SF: FnMut(&I::Item) -> bool,
-    CF: FnMut(&I::Item, &I::Item) -> I::Item,
+    FF: FnMut(&I::Item, &I::Item) -> I::Item,
 {
     type Item = I::Item;
 
