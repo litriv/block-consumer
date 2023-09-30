@@ -9,6 +9,13 @@ where
     SF: FnMut(&I::Item) -> bool,
     CF: FnMut(&I::Item, &I::Item) -> I::Item,
 {
+    pub fn new(iter: I, should_skip: SF, consume: CF) -> BlockConsumer<I, SF, CF> {
+        BlockConsumer {
+            iter,
+            should_skip,
+            consume,
+        }
+    }
     // skips until a value is found, then return that value
     fn skip(&mut self) -> Option<I::Item> {
         loop {
@@ -50,19 +57,6 @@ where
     }
 }
 
-pub fn block_consumer<I, SF, CF>(iter: I, should_skip: SF, consume: CF) -> BlockConsumer<I, SF, CF>
-where
-    I: Iterator,
-    SF: FnMut(&I::Item) -> bool,
-    CF: FnMut(&I::Item, &I::Item) -> I::Item,
-{
-    BlockConsumer {
-        iter,
-        should_skip,
-        consume,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,7 +64,7 @@ mod tests {
     #[test]
     fn it_works() {
         let v = [0, 0, 1, 2, 3, 0, 4, 5, 0, 0, 0, 6, 7, 8, 0, 0];
-        let mut bc = block_consumer(v.into_iter(), |v| *v == 0, |orig, v| v + orig);
+        let mut bc = BlockConsumer::new(v.into_iter(), |v| *v == 0, |orig, v| v + orig);
         assert_eq!(bc.next(), Some(6));
         assert_eq!(bc.next(), Some(9));
         assert_eq!(bc.next(), Some(21));
