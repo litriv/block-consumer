@@ -1,18 +1,18 @@
-pub struct BlockConsumer<I, SF, FF> {
+pub struct BlockFolder<I, DF, FF> {
     iter: I,
-    should_skip: SF,
+    delim_func: DF,
     fold_func: FF,
 }
-impl<I, SF, FF> BlockConsumer<I, SF, FF>
+impl<I, DF, FF> BlockFolder<I, DF, FF>
 where
     I: Iterator,
-    SF: FnMut(&I::Item) -> bool,
+    DF: FnMut(&I::Item) -> bool,
     FF: FnMut(&I::Item, &I::Item) -> I::Item,
 {
-    pub fn new(iter: I, should_skip: SF, fold_func: FF) -> BlockConsumer<I, SF, FF> {
-        BlockConsumer {
+    pub fn new(iter: I, delim_func: DF, fold_func: FF) -> BlockFolder<I, DF, FF> {
+        BlockFolder {
             iter,
-            should_skip,
+            delim_func,
             fold_func,
         }
     }
@@ -20,7 +20,8 @@ where
     fn skip(&mut self) -> Option<I::Item> {
         loop {
             let v = self.iter.next()?;
-            if !(self.should_skip)(&v) {
+            let is_delim = (self.delim_func)(&v);
+            if !is_delim {
                 return Some(v);
             }
         }
@@ -30,7 +31,7 @@ where
         loop {
             match self.iter.next() {
                 Some(v) => {
-                    if (self.should_skip)(&v) {
+                    if (self.delim_func)(&v) {
                         // We stepped inside the next separator, so we stop
                         return Some(accum);
                     }
@@ -43,17 +44,17 @@ where
         }
     }
 }
-impl<I, SF, FF> Iterator for BlockConsumer<I, SF, FF>
+impl<I, DF, FF> Iterator for BlockFolder<I, DF, FF>
 where
     I: Iterator,
-    SF: FnMut(&I::Item) -> bool,
+    DF: FnMut(&I::Item) -> bool,
     FF: FnMut(&I::Item, &I::Item) -> I::Item,
 {
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let orig = BlockConsumer::skip(self)?;
-        Some(BlockConsumer::fold(self, Some(orig))?)
+        let orig = BlockFolder::skip(self)?;
+        Some(BlockFolder::fold(self, Some(orig))?)
     }
 }
 
