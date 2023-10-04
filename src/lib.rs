@@ -53,8 +53,8 @@ where
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let orig = BlockFolder::skip(self)?;
-        Some(BlockFolder::fold(self, Some(orig))?)
+        let orig = self.skip()?;
+        Some(self.fold(Some(orig))?)
     }
 }
 
