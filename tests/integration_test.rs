@@ -1,4 +1,4 @@
-use block_consumer::BlockFolder;
+use block_folder::BlockFolder;
 
 #[test]
 fn test_owned() {

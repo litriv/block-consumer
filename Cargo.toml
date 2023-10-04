@@ -1,5 +1,5 @@
 [package]
-name = "block-consumer"
+name = "block-folder"
 version = "0.1.0"
 edition = "2021"
 
