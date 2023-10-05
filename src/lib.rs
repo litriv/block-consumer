@@ -1,19 +1,25 @@
-pub struct BlockFolder<I, DF, FF> {
+use std::marker::PhantomData;
+
+// pub struct BlockFolder<I, DF, FF> {
+pub struct BlockFolder<I, DF, FF, FFA> {
     iter: I,
     delim_func: DF,
     fold_func: FF,
+    phantom: PhantomData<FFA>,
 }
-impl<I, DF, FF> BlockFolder<I, DF, FF>
+// impl<I, DF, FF> BlockFolder<I, DF, FF>
+impl<I, DF, FF, FFA> BlockFolder<I, DF, FF, FFA>
 where
     I: Iterator,
     DF: FnMut(&I::Item) -> bool,
-    FF: FnMut(&I::Item, &I::Item) -> I::Item,
+    FF: FnMut(FFA, &I::Item) -> FFA,
 {
-    pub fn new(iter: I, delim_func: DF, fold_func: FF) -> BlockFolder<I, DF, FF> {
+    pub fn new(iter: I, delim_func: DF, fold_func: FF) -> BlockFolder<I, DF, FF, FFA> {
         BlockFolder {
             iter,
             delim_func,
             fold_func,
+            phantom: PhantomData,
         }
     }
     // skips until a value is found, then return that value
@@ -26,8 +32,9 @@ where
             }
         }
     }
-    fn fold(&mut self, orig: Option<I::Item>) -> Option<I::Item> {
-        let mut accum = orig.unwrap();
+    fn fold(&mut self, init: Option<FFA>) -> Option<FFA> {
+        // fn fold(&mut self, init: FFA, fold_func: FF) -> FFA
+        let mut accum = init.unwrap();
         loop {
             match self.iter.next() {
                 Some(v) => {
@@ -35,26 +42,29 @@ where
                         // We stepped inside the next separator, so we stop
                         return Some(accum);
                     }
-                    accum = (self.fold_func)(&accum, &v)
+                    accum = (self.fold_func)(accum, &v)
                 }
-                // The item returned by skip was a singular, last item,
-                // so, self.iter.next() above resulted in None.
                 None => return Some(accum),
             };
         }
     }
 }
-impl<I, DF, FF> Iterator for BlockFolder<I, DF, FF>
+// impl<I, DF, FF> Iterator for BlockFolder<I, DF, FF>
+impl<I, DF, FF, FFA> Iterator for BlockFolder<I, DF, FF, FFA>
 where
     I: Iterator,
     DF: FnMut(&I::Item) -> bool,
-    FF: FnMut(&I::Item, &I::Item) -> I::Item,
+    FF: FnMut(FFA, &I::Item) -> FFA,
 {
     type Item = I::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let orig = self.skip()?;
-        Some(self.fold(Some(orig))?)
+        let init = BlockFolder::skip(self)?;
+        Some(BlockFolder::fold(self, Some(init))?)
+        // match BlockFolder::fold(self, Some(init)) {
+        //     Some(v) => Some(v),
+        //     None => None,
+        // }
     }
 }
 
