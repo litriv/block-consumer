@@ -1,68 +1,77 @@
-pub struct BlockFolder<I, DF, FF> {
+pub struct BlockFolder<I, B, D, F> {
     iter: I,
-    delim_func: DF,
-    fold_func: FF,
+    initial: B,
+    delim_func: D,
+    fold_func: F,
 }
-impl<I, DF, FF> BlockFolder<I, DF, FF>
-where
-    I: Iterator,
-    DF: FnMut(&I::Item) -> bool,
-    FF: FnMut(&I::Item, &I::Item) -> I::Item,
-{
-    pub fn new(iter: I, delim_func: DF, fold_func: FF) -> BlockFolder<I, DF, FF> {
+
+impl<I, B, D, F> BlockFolder<I, B, D, F> {
+    pub fn new(iter: I, initial: B, delim_func: D, fold_func: F) -> Self {
         BlockFolder {
             iter,
+            initial,
             delim_func,
             fold_func,
         }
     }
-    // skips until a value is found, then return that value
-    fn skip(&mut self) -> Option<I::Item> {
-        loop {
-            let v = self.iter.next()?;
-            let is_delim = (self.delim_func)(&v);
-            if !is_delim {
-                return Some(v);
-            }
-        }
-    }
-    fn fold(&mut self, orig: Option<I::Item>) -> Option<I::Item> {
-        let mut accum = orig.unwrap();
-        loop {
-            match self.iter.next() {
-                Some(v) => {
-                    if (self.delim_func)(&v) {
-                        // We stepped inside the next separator, so we stop
-                        return Some(accum);
-                    }
-                    accum = (self.fold_func)(&accum, &v)
-                }
-                // The item returned by skip was a singular, last item,
-                // so, self.iter.next() above resulted in None.
-                None => return Some(accum),
-            };
-        }
-    }
 }
-impl<I, DF, FF> Iterator for BlockFolder<I, DF, FF>
+
+impl<I, B, D, F> Iterator for BlockFolder<I, B, D, F>
 where
     I: Iterator,
-    DF: FnMut(&I::Item) -> bool,
-    FF: FnMut(&I::Item, &I::Item) -> I::Item,
+    B: Clone,
+    D: FnMut(&mut I::Item) -> bool,
+    F: FnMut(B, I::Item) -> B,
 {
-    type Item = I::Item;
+    type Item = B;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let orig = self.skip()?;
-        Some(self.fold(Some(orig))?)
+        let mut accum = None;
+
+        loop {
+            let Some(mut item) = self.iter.next() else { return accum; };
+
+            if (self.delim_func)(&mut item) {
+                if accum.is_none() {
+                    continue;
+                }
+
+                return accum;
+            }
+
+            let lhs = accum.unwrap_or_else(|| self.initial.clone());
+
+            accum = Some((self.fold_func)(lhs, item));
+        }
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[test]
+fn test_owned() {
+    let v = [0, 0, 1, 2, 3, 0, 4, 5, 0, 0, 0, 6, 7, 8, 0, 0];
+    let mut bc = BlockFolder::new(
+        v.into_iter(),
+        0,
+        |&mut v: &mut u64| v == 0,
+        |acc, item| acc + item,
+    );
+    assert_eq!(bc.next(), Some(6));
+    assert_eq!(bc.next(), Some(9));
+    assert_eq!(bc.next(), Some(21));
+    assert_eq!(bc.next(), None);
+}
 
-    #[test]
-    fn it_works() {
-        assert!(true);
-    }
+#[test]
+fn test_borrowed() {
+    let v = [0, 0, 1, 2, 3, 0, 4, 5, 0, 0, 0, 6, 7, 8, 0, 0];
+    let mut bc = BlockFolder::new(
+        v.iter(),
+        0,
+        |&mut &v: &mut &u64| v == 0,
+        |acc, &item| acc + item,
+    );
+    assert_eq!(bc.next(), Some(6));
+    assert_eq!(bc.next(), Some(9));
+    assert_eq!(bc.next(), Some(21));
+    assert_eq!(bc.next(), None);
 }
